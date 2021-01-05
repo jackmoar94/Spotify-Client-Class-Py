@@ -68,7 +68,36 @@ class Spotify(object):
 		headers = {"Authorization": f"Bearer {access_token}"}
 		return headers
 
+	def base_search(self, query_params):
+		#Combines a generic header and generic endpoint with generic query parameters.
+		#Returns a json object.
+		headers = self.get_resource_header()
+		endpoint = "https://api.spotify.com/v1/search"
+		lookup_url = f"{endpoint}?{query_params}"
+		r = requests.get(lookup_url, headers=headers)
+		if r.status_code not in range (200,299):
+			return {}
+		return r.json()
+
+	def search(self, query=None, operator=None, operator_query=None, search_type='artist'):
+	#A more robust search function which constructs a detailed set of query parameters.
+	#Accepts a dictionary of query parameters
+		if query == None:
+			raise Exception("ERROR: search did not receive a query.")
+		if isinstance(query, dict):
+			query == " ".join([f"{k}:{v}" for k,v in query.items()])
+		if operator != None and operator_query != None:
+			if operator.lower() == "or" or operator.lower() == "not":
+				operator = operator.upper()
+				if isinstance(operator_query, str):
+					query = f"{query} {operator} {operator_query}"
+		query_params = urlencode({"q": query, "type": search_type.lower()})
+
+		return self.base_search(query_params)
+
+	#RESOURCE SPECIFIC FUNCTIONS
 	def show(get_function):
+		#A decorator to show results more clearly.
 		def wrapper(*args, **kwargs):
 			r = get_function(*args,**kwargs)
 			for k,v in r.items():
@@ -76,8 +105,18 @@ class Spotify(object):
 		return wrapper
 
 	def get_resource(self, lookup_id, resource_type, extension="",version="v1"):
-	#Template for most basic resource requests.
+		#Template for most basic resource requests.
 		endpoint = f"https://api.spotify.com/{version}/{resource_type}/{lookup_id}/{extension}"
+		headers = self.get_resource_header()
+		r = requests.get(endpoint, headers=headers)
+		if r.status_code not in range(200,299):
+			return {}
+		return r.json()
+
+	def get_resources(self, lookup_ids, resource_type, version="v1"):
+		#Expects a list or tup of lookup_ids
+		ids_string = ",".join(lookup_ids)  
+		endpoint = f"https://api.spotify.com/{version}/{resource_type}?ids={ids_string}"
 		headers = self.get_resource_header()
 		r = requests.get(endpoint, headers=headers)
 		if r.status_code not in range(200,299):
@@ -89,6 +128,9 @@ class Spotify(object):
 
 	def get_album_tracks(self, lookup_id):
 		return self.get_resource(lookup_id, resource_type="albums", extension="tracks")
+
+	def get_albums(self, lookup_ids):
+		return self.get_resources(lookup_ids, resource_type="albums", version="v1")
 		
 	def get_artist(self, lookup_id):
 		return self.get_resource(lookup_id, resource_type="artists")
@@ -102,15 +144,38 @@ class Spotify(object):
 	def get_artist_related_artists(self, lookup_id):
 		return self.get_resource(lookup_id, resource_type="artists", extension="related-artists")
 
-	def get_artists(self, lookup_ids, resource_type="artists", version="v1"):
-		#Expects a list or tup of artist ids.
-		ids_string = ",".join(lookup_ids)  
-		endpoint = f"https://api.spotify.com/{version}/{resource_type}?ids={ids_string}"
-		headers = self.get_resource_header()
-		r = requests.get(endpoint, headers=headers)
-		if r.status_code not in range(200,299):
-			return {}
-		return r.json()
+	def get_artists(self, lookup_ids):
+		return self.get_resources(lookup_ids, resource_type="artists", version="v1")
+
+	def get_track(self, lookup_id):
+		return self.get_resource(lookup_id, resource_type="tracks")
+
+	def get_tracks(self, lookup_ids):
+		return self.get_resources(lookup_ids, resource_type="tracks")
+
+	def get_audio_analysis(self, lookup_id):
+		return self.get_resource(lookup_id, resource_type="audio-analysis")
+
+	def get_audio_features(self, lookup_id):
+		return self.get_resource(lookup_id, resource_type="audio-features")
+
+	def get_audio_features_for_several_tracks(self, lookup_ids):
+		return self.get_resources(lookup_ids, resource_type="audio-features")
+
+	def get_album_tracks_ids(self, album_id):
+		#returns a list containing the ids for each track of an album
+		r = self.get_album_tracks(album_id)
+		album_tracks_ids = []
+		for i in r['items']:
+			 album_tracks_ids.append(i['id'])
+		return album_tracks_ids
+
+
+
+
+
+
+
 
 
 
